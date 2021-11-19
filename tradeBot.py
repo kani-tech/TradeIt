@@ -44,6 +44,25 @@ class TradeBot:
         for bar in market_data[self.symb]:
             daily_highs.append(bar.h)
 
+        active_positions = api.list_positions()
+
+        position_exists = active_positions.__contains__(self.symb)
+        # No position has been owned and the most recent close price is greater than the last 30 days max price so buy
+        if not position_exists and closing_data[-1] >= max(daily_highs[:-1]):
+            print("Buy")
+            api.submit_order(
+                symbol='SPY',
+                qty=1,
+                side="buy",
+                type="market",
+                time_in_force='gtc'
+            )
+            self.breakoutlvl = max(daily_highs[:-1])
+            self.highestPrice = self.breakoutlvl
+
+        if (len(api.list_orders("open"))):
+            self.stop_receipt =
+
 
 myBot = TradeBot("SPY")
 myBot.algo()
