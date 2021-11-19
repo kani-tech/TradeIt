@@ -8,15 +8,59 @@ PUB_KEY = 'PKNOXY6PVEUOULTI3V91'  # Enter Your Public Key Here
 BASE_URL = 'https://paper-api.alpaca.markets'
 api = tradeapi.REST(key_id=PUB_KEY, secret_key=SEC_KEY, base_url=BASE_URL)
 
-symb = "SPY"
 pos_held = False
+# Breakoutlvl
+breakoutlvl = None
+highest_price = None
 
-while True:
+
+class TradeBot:
+    def __init__(self, symb):
+        self.symb = symb
+        self.time_ceiling = 30
+        self.floor = 10
+        self.backtrack_time = 20
+        self.initial_stop_loss = 0.98
+        self.trailing_stop_loss = 0.9
+
+    def algo(self):
+        market_data = api.get_barset([self.symb], 'day', limit=31)
+
+        closing_data = []
+        for bar in market_data[self.symb]:
+            closing_data.append(bar.c)
+
+        vol_today = np.std(closing_data[1:31])
+        vol_yesterday = np.std(closing_data[1:30])
+        change_in_vol = (vol_today - vol_yesterday) / vol_today
+        self.backtrack_time = round(self.backtrack_time * (1 + change_in_vol))
+
+        if (self.backtrack_time > self.time_ceiling):
+            self.backtrack_time = self.time_ceiling
+        elif (self.backtrack_time < self.floor):
+            self.backtrack_time = self.time_floor
+
+        daily_highs = []
+        for bar in market_data[self.symb]:
+            daily_highs.append(bar.h)
+
+
+myBot = TradeBot("SPY")
+myBot.algo()
+""" while True:
     print("")
     print("Checking Price")
     market_data = api.get_barset([symb], 'day', limit=31)
     print(market_data)
+
+    # Time Values
+    time_ceiling = 30
+    time_floor = 10
     backtrack_time = 20
+
+    # Stop Losses
+    initial_stop_loss = 0.98
+    trailing_stop_risk = 0.9
 
     # Find the closing price for the past 30 dalys
     closing_data = []
@@ -28,21 +72,17 @@ while True:
     change_in_vol = (vol_today - vol_yesterday) / vol_today
     backtrack_time = round(backtrack_time * (1 + change_in_vol))
 
-    """ close_list = []
+    if (backtrack_time > time_ceiling):
+        backtrack_time = time_ceiling
+    elif (backtrack_time < time_floor):
+        backtrack_time = time_floor
+
+    daily_highs = []
     for bar in market_data[symb]:
-        close_list.append(bar.c)
+        daily_highs.append(bar.h)
 
-    close_list = np.array(close_list, dtype=np.float64)
-    ma = np.mean(close_list)
-    last_price = close_list[4]
-
-    print("Moving Average " + str(ma))
-    last_price = close_list[4]
-
-    print("Moving Average " + str(ma))
-    print("Last Price" + str(last_price))
-
-    if ma + 0.1 < last_price and not pos_held:
+    # No position has been owned and the most recent close price is greater than the last 30 days max price so buy
+    if not pos_held and closing_data[-1] >= max(daily_highs[:-1]):
         print("Buy")
         api.submit_order(
             symbol='SPY',
@@ -52,15 +92,14 @@ while True:
             time_in_force='gtc'
         )
         pos_held = True
-    elif ma + 0.1 < last_price and not pos_held:
-        print("Sell $")
-        api.submit_order(
-            symbol='SPY',
-            qty=1,
-            side="sell",
-            type="market",
-            time_in_force='gtc'
-        )
-        pos_held = False """
+        breakoutlvl = max(daily_highs[:-1])
+        highest_price = breakoutlvl
+
+    if (pos_held):
+        if not api.list_orders(status="open"):
+            print("data", market_data[symb])
+    print("close", closing_data)
+    print("highs", daily_highs)
 
     time.sleep(60)
+ """
